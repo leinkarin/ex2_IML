@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from math import atan2, pi
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def load_dataset(filename: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -41,12 +42,13 @@ def run_perceptron():
                  ("Linearly Inseparable", "linearly_inseparable.npy")]:
         # Load dataset
         X, y = load_dataset(f)
+
         # Fit Perceptron and record loss in each fit iteration
         losses = []
 
-        def record_loss_callback(perceptron: Perceptron, x: np.ndarray, y: int):
-            # Append the loss to the losses list
-            losses.append(perceptron._loss(X, y))
+        def record_loss_callback(perceptron: Perceptron, _, __):
+            # append the loss to the losses list
+            losses.append(perceptron.loss(X, y))
 
         perceptron = Perceptron(callback=record_loss_callback)
         perceptron.fit(X, y)

@@ -3,7 +3,6 @@ from typing import Callable
 from typing import NoReturn
 from base_estimator import BaseEstimator
 import numpy as np
-from numpy.linalg import det, inv
 
 
 def default_callback(fit: Perceptron, x: np.ndarray, y: int):
@@ -80,16 +79,21 @@ class Perceptron(BaseEstimator):
             X = np.c_[np.ones(X.shape[0]), X]  # include intercept
 
         self.coefs_ = np.zeros(X.shape[1])  # initialize coefficients to zeros
-
+        self.fitted_ = True
         for _ in range(self.max_iter_):
-            misclassified = 0  # count the number of misclassified samples
+            misclassified = -1
             for i in range(X.shape[0]):
                 if y[i] * np.dot(self.coefs_, X[i]) <= 0:  # misclassified sample- y_i * <w, x_i> <= 0
-                    self.coefs_ += y[i] * X[i]
-                    misclassified += 1
-                    self.callback_(self, X[i], y[i])
-            if misclassified == 0:  # no misclassified samples found in the current iteration (so we can stop)
-                break
+                    misclassified = i  # misclassified sample found
+                    break
+
+            if misclassified == -1:
+                break  # no misclassified samples found
+
+            self.coefs_ += y[misclassified] * X[misclassified]  # update coefficients
+            self.callback_(self, X[misclassified], y[misclassified])  # call the callback function after each update
+
+        self.callback_(self, None, None)  # call the callback function after fitting is completed
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """

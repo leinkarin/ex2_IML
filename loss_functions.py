@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def misclassification_error(y_true: np.ndarray, y_pred: np.ndarray, normalize: bool = True) -> float:
     """
     Calculate misclassification loss
