@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Callable
 from typing import NoReturn
+
+from numpy.linalg import inv
 from base_estimator import BaseEstimator
 import numpy as np
 
@@ -179,7 +181,19 @@ class LDA(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        n_features = X.shape[1]
+        self.classes_, counts = np.unique(y, return_counts=True)
+        n_classes = len(self.classes_)
+        self.mu_ = np.zeros((n_classes, n_features))
+        self.cov_ = np.zeros((n_features, n_features))
+        self.pi_ = counts / len(y)
+
+        for idx, c in enumerate(self.classes_):
+            X_c = X[y == c]
+            self.mu_[idx, :] = X_c.mean(axis=0)
+            self.cov_ += np.cov(X_c, rowvar=False) * (X_c.shape[0] - 1)
+        self.cov_ /= (len(X) - n_classes)
+        self._cov_inv = inv(self.cov_)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -195,7 +209,8 @@ class LDA(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        likelihoods = self.likelihood(X)
+        return self.classes_[np.argmax(likelihoods, axis=1)]
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
@@ -215,7 +230,18 @@ class LDA(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
-        raise NotImplementedError()
+        normalizing_const = np.sqrt((2 * np.pi) ** X.shape[1] * np.linalg.det(self.cov_))
+
+        # compute the difference between each data point and the mean of the distributions
+        diff = X[:, np.newaxis, :] - self.mu_
+
+        # compute the exponent term in the Gaussian likelihood
+        exponent_term = np.exp(-0.5 * np.sum(diff.dot(self._cov_inv) * diff, axis=2))
+
+        # calculate the likelihood by dividing the exponent term by the normalizing constant
+        likelihood = exponent_term / normalizing_const
+
+        return likelihood * self.pi_
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -235,7 +261,9 @@ class LDA(BaseEstimator):
             Performance under missclassification loss function
         """
         from loss_functions import misclassification_error
-        raise NotImplementedError()
+
+        y_pred = self._predict(X)
+        return misclassification_error(y, y_pred)
 
 
 class GaussianNaiveBayes(BaseEstimator):
@@ -276,7 +304,11 @@ class GaussianNaiveBayes(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+
+        self.classes_, self.pi_ = np.unique(y, return_counts=True)
+        self.pi_ = self.pi_ / len(y)
+        self.mu_ = np.array([np.mean(X[y == c], axis=0) for c in self.classes_])
+        self.vars_ = np.array([np.var(X[y == c], axis=0, ddof=1) for c in self.classes_])
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -292,7 +324,7 @@ class GaussianNaiveBayes(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        return self.classes_[np.argmax(self.likelihood(X), axis=1)]
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
@@ -312,7 +344,20 @@ class GaussianNaiveBayes(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
-        raise NotImplementedError()
+        n_samples, n_features = X.shape
+        n_classes = len(self.classes_)
+        likelihoods = np.zeros((n_samples, n_classes))
+
+        for idx, c in enumerate(self.classes_):
+            prior = self.pi_[idx]
+            mean = self.mu_[idx]
+            var = self.vars_[idx]
+            var[var == 0] = 1e-9  # To avoid division by zero
+            log_likelihood = -0.5 * np.sum(np.log(2. * np.pi * var))
+            log_likelihood -= 0.5 * np.sum(((X - mean) ** 2) / var, axis=1)
+            likelihoods[:, idx] = np.exp(log_likelihood) * prior
+
+        return likelihoods
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -332,4 +377,5 @@ class GaussianNaiveBayes(BaseEstimator):
             Performance under missclassification loss function
         """
         from loss_functions import misclassification_error
-        raise NotImplementedError()
+        y_pred = self._predict(X)
+        return misclassification_error(y, y_pred)

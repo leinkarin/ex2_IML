@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from math import atan2, pi
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def load_dataset(filename: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -90,32 +89,71 @@ def get_ellipse(mu: np.ndarray, cov: np.ndarray):
 
 def compare_gaussian_classifiers():
     """
-    Fit both Gaussian Naive Bayes and LDA classifiers on both gaussians1 and gaussians2 datasets
+    Compare Gaussian Naive Bayes and LDA classifiers on two datasets (gaussian1.npy and gaussian2.npy).
+    Display predictions, means, and covariances using Plotly subplots.
     """
+
     for f in ["gaussian1.npy", "gaussian2.npy"]:
         # Load dataset
-        raise NotImplementedError()
+        X, y = load_dataset(f)
 
         # Fit models and predict over training set
-        raise NotImplementedError()
+        gnb = GaussianNaiveBayes()
+        lda = LDA()
+
+        gnb.fit(X, y)
+        lda.fit(X, y)
+
+        gnb_predictions = gnb.predict(X)
+        lda_predictions = lda.predict(X)
 
         # Plot a figure with two suplots, showing the Gaussian Naive Bayes predictions on the left and LDA predictions
         # on the right. Plot title should specify dataset used and subplot titles should specify algorithm and accuracy
         # Create subplots
         from loss_functions import accuracy
-        raise NotImplementedError()
+        gnb_accuracy = round(100 * accuracy(y, gnb_predictions), 2)
+        lda_accuracy = round(100 * accuracy(y, lda_predictions), 2)
+
+        subplot_titles = [
+            rf"Gaussian Naive Bayes (accuracy={gnb_accuracy}%)",
+            rf"LDA (accuracy={lda_accuracy}%)"
+        ]
+        fig = make_subplots(rows=1, cols=2, subplot_titles=subplot_titles)
 
         # Add traces for data-points setting symbols and colors
-        raise NotImplementedError()
+        fig.add_trace(
+            go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=gnb_predictions, symbol='circle'),
+                       name='Predicted (Naive Bayes)', marker_colorscale='Viridis'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=y, symbol='x'),
+                                 name='True', marker_colorscale='Viridis'), row=1, col=1)
+
+        fig.add_trace(
+            go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=lda_predictions, symbol='circle'),
+                       name='Predicted (LDA)', marker_colorscale='Viridis'), row=1, col=2)
+        fig.add_trace(go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=y, symbol='x'),
+                                 name='True', marker_colorscale='Viridis'), row=1, col=2)
 
         # Add `X` dots specifying fitted Gaussians' means
-        raise NotImplementedError()
+        fig.add_trace(go.Scatter(x=gnb.mu_[:, 0], y=gnb.mu_[:, 1], mode="markers",
+                                 marker=dict(symbol="x", color="black", size=15),
+                                 name='Naive Bayes Mean'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=lda.mu_[:, 0], y=lda.mu_[:, 1], mode="markers",
+                                 marker=dict(symbol="x", color="black", size=15),
+                                 name='LDA Mean'), row=1, col=2)
 
         # Add ellipses depicting the covariances of the fitted Gaussians
-        raise NotImplementedError()
+        for i in range(3):
+            fig.add_trace(get_ellipse(gnb.mu_[i], np.diag(gnb.vars_[i])), row=1, col=1)
+            fig.add_trace(get_ellipse(lda.mu_[i], lda.cov_), row=1, col=2)
+
+        fig.update_layout(
+            title_text=f"Comparing Gaussian Classifiers - {f[:-4]} dataset",
+            width=1000, height=500, showlegend=True
+        )
+        fig.show()
 
 
 if __name__ == '__main__':
     np.random.seed(0)
     run_perceptron()
-    # compare_gaussian_classifiers()
+    compare_gaussian_classifiers()
